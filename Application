@@ -1,1 +1,868 @@
-应用程序
+<?php
+
+namespace Development\Controller;
+use Think\Controller;
+/**
+ * 项目调试立项 ，调试总表
+ */
+class DebuggingIndexController extends BaseController{
+        
+
+    /**
+     * 查询
+     * @return [type] [description]
+     */
+    protected  function _search(){
+        $map = array ();
+        /* ：项目名称 ItemName*/
+        if($_REQUEST['project_Name']!=''){
+                $map['project_Name'] =array('like','%'.$_REQUEST['project_Name'].'%');
+        }
+         if($_REQUEST['expoit']!=''){
+                $map['expoit'] =array('like','%'.$_REQUEST['expoit'].'%');
+        }
+        if($_REQUEST['customer']!=''){
+                $map['customer'] =array('like','%'.$_REQUEST['customer'].'%');
+        }
+        if($_REQUEST['status']!=''){
+            if($_REQUEST['status'] == $_REQUEST['status']){
+                $map['status'] = $_REQUEST['status'];
+            } 
+        }
+        if(count($map)==0)
+            return '1=1';
+        return $map;
+    }
+    
+    /**
+     * 展示数据
+     * 
+     */
+    public function index(){
+       if(IS_POST){
+            $Model =D("projectdebug");  
+            $iDisplayLength = $_REQUEST['iDisplayLength'];//每页显示行数
+            $iDisplayStart = $_REQUEST['iDisplayStart'];//第几页
+           
+            $iSortCol = '';//排序字段
+            $sSortDir = $_REQUEST['sSortDir_0'];//排序方式
+            $orders = 'project_Time desc';
+
+            switch($_REQUEST['iSortCol_0']){//排序
+                case 1: $iSortCol = "'project_Time'"; break;
+                default: $iSortCol = '';break;
+            }
+
+            if($iSortCol){
+                $orders = $iSortCol . ' ' .$sSortDir;
+            } 
+            $where  = $this ->_search();
+            //记录总条数
+            $Count  = $Model -> where ($where) -> count();
+             //格式化后的显示结果
+            $reList = array();
+
+            //用户状态保存到数组中
+            $isConfirm = array(
+                "1"=>'<a  class="btn btn-info btn-xs"><i class="fa fa"></i>审批中</a>',
+                "2"=>'<a  class="btn btn-palegreen btn-xs"><i class="fa fa"></i>审核通过</a>',
+                "3"=>'<a  class="btn btn-yellow btn-xs"><i class="fa fa"></i>审核不通过</a>',
+                "4"=>'<a  class="btn btn-danger btn-xs"><i class="fa fa"></i>已发研发报告</a>',
+                "5"=>'<a  class="btn btn-warning btn-xs"><i class="fa fa"></i>研发不通过</a>',
+                "6"=>'<a  class="btn btn-purple btn-xs"><i class="fa fa"></i>客户确认研发报告</a>',
+                "7"=>'<a  class="btn btn-darkorange btn-xs"><i class="fa fa"></i>客户确认数据不通过</a>',
+                "8"=>'<a  class="btn btn-sky btn-xs"><i class="fa fa"></i>到样</a>',
+                "9"=>'<a  class="btn btn-palegreen btn-xs"><i class="fa fa"></i>研发验证样品OK</a>',
+                "10"=>'<a  class="btn btn-maroon btn-xs"><i class="fa fa"></i>研发验证样品不通过</a>',
+                "11"=>'<a  class="btn btn-blue btn-xs"><i class="fa fa"></i>送样</a>',
+                "12"=>'<a  class="btn btn-success btn-xs"><i class="fa fa"></i>客户确认样品性能OK</a>',
+                "13"=>'<a  class="btn btn-danger btn-xs"><i class="fa fa"></i>需优化</a>',
+                "14"=>'<a  class="btn btn-primary btn-xs"><i class="fa fa"></i>客户试产</a>',
+                "15"=>'<a  class="btn btn-primary btn-xs"><i class="fa fa"></i>承认书</a>',
+                "16"=>'<a  class="btn btn-primary btn-xs"><i class="fa fa"></i>销售送承认书</a>',
+                "17"=>'<a  class="btn btn-primary btn-xs"><i class="fa fa"></i>试产状态</a>',
+                "18"=>'<a  class="btn btn-danger btn-xs"><i class="fa fa"></i>需优化</a>', 
+                "20"=>'<a  class="btn btn-danger btn-xs"><i class="fa fa"></i>打样</a>',
+            );
+            //  $isenable = array(
+            //     "0"=>'启用',
+            //     "-1"=>'终止',
+            //     "-2"=>'暂停',
+            //     "-3"=>'客户机器问题',  
+            // );
+            //数据表查询出得结果数据
+            $list = $Model->where($where)->order($orders)->limit($iDisplayStart.','.$iDisplayLength)->select(); 
+            if($list){
+                    for($index = 0; $index<count($list); $index++){
+                        $obj = $list[$index];
+                        $detailoper_url=P('reconciliactionDetail')."?id=".$obj['id']; 
+                        $confirmstate = $isConfirm[$obj['status']];
+                        
+                        $statusEanble = '';
+                        if($obj['enable']==0){
+                            $statusEanble='&nbsp;&nbsp;<a class ="btn btn-palegreen btn-xs " onclick="operate(\''.P('enable').'\',\''.$obj['id'].'\',\'请选择状态\',\'datatable\')"><i class ="fa fa"></i>启用</a>';
+                        }else if($obj['enable']==-1){
+                            $statusEanble='&nbsp;&nbsp;<a class ="btn btn-palegreen btn-xs " onclick="operate(\''.P('enable').'\',\''.$obj['id'].'\',\'请选择状态\',\'datatable\')"><i class ="fa fa"></i>终止</a>';
+                        }
+                        else if($obj['enable']==-2){
+                            $statusEanble='&nbsp;&nbsp;<a class ="btn btn-palegreen btn-xs " onclick="operate(\''.P('enable').'\',\''.$obj['id'].'\',\'请选择状态\',\'datatable\')"><i class ="fa fa"></i>暂停</a>';   
+                        }
+                        else if($obj['enable']==-3){
+                            $statusEanble='&nbsp;&nbsp;<a class ="btn btn-palegreen btn-xs " onclick="operate(\''.P('enable').'\',\''.$obj['id'].'\',\'请选择状态\',\'datatable\')"><i class ="fa fa"></i>客户机器问题</a>';
+                        }
+                        $buttonMessage ='<a  class="btn btn-info btn-xs" onclick="operate(\''.$detailoper_url.'\')"><i class="fa fa"></i>明细</a>'
+                        .'&nbsp;&nbsp;<a class="btn btn-danger btn-xs" onclick="operate_confirm(\''.P('del').'\',\''.$obj['id'].'\',\'删除调试项目\',\'确认是否删调试项目？\',\'datatable\')"><i class="fa  fa-trash-o"></i>删除</a>'
+                        .'&nbsp;&nbsp;<a class ="btn btn-danger btn-xs " onclick="operate(\''.P('remarks').'\',\''
+                        .$obj['id'].'\',\'增加备注\',\'datatable\')"><i class ="fa fa"></i>备注</a>'
+                        .$statusEanble
+                        .'&nbsp;&nbsp;<a class ="btn btn-maroon btn-xs " onclick="operate(\''.P('taskAdd').'\',\''.
+                    $obj['id'].'\',\'任务分派\',\'datatable\')"><i class ="fa fa"></i>任务分派</a>'.'&nbsp;<a class ="btn btn-info btn-xs " onclick="operate(\''.P('editInfo').'\',\''.
+                        $obj['id'].'\',\'修改评估数据\',\'datatable\')"><i class ="fa fa"></i>修改</a>';
+                        
+                      
+                        //页面显示的数据
+                        $ob = array(
+                            $obj['customer'],
+                            $obj['project_Name'],
+                            $obj['expoit'],
+                            date("Y-m-d",$obj['project_Time']), 
+                            $confirmstate,
+                            //$isenable[$obj['enable']],
+                            $buttonMessage
+                        );
+                        $reList[$index] = $ob;
+                    }
+            }
+            $reObj = array(
+                'draw'=>$_REQUEST['sEcho'],
+                'recordsTotal' => $Count,
+                'recordsFiltered' => $Count,
+                'data' => $reList
+            );
+            $this->ajaxReturn($reObj);
+            exit;
+        }
+        $this -> display();
+    }
+
+
+     //任务分派
+    public function taskAdd(){
+        //获取钉钉用户信息
+        $staffs=D("dinguser")->select();  
+        for ($i=0; $i <count($staffs) ; $i++) { 
+          $staffs[$i]["name"]=$staffs[$i]["departmentname"].':'.$staffs[$i]["name"];
+        }
+        $this -> assign("staffs",$staffs);
+ 
+        $dept = D('dinguser')->field('departmentname')->group('departmentname')->select();
+        $this -> assign("dept",$dept);
+        if(IS_POST){
+            $post_data = I('post.');  
+            if(count($_REQUEST['person'])==0)
+            {
+                $this->error('请选择人员'); 
+            }
+            $Model = D("tasklist");
+            //多个用户 ， 隔开
+            $request_Person = $_REQUEST['person'];
+            $post_data['person'] = implode(',', $request_Person);
+
+            $post_data['createTime'] =strtotime($post_data['createTime']); //开始时间
+            $post_data['planCompleteTime'] =strtotime($post_data['planCompleteTime']); //完成时间  
+            $post_data['CompleteTime'] =strtotime($post_data['CompleteTime']); //总完成时间  
+
+
+            $postd = D('projectdebug')->where(array('id'=>$_REQUEST['id']))->find();
+            $post_data['relevanceId'] = $postd['id'];
+            $post_data['relevanceProject'] = $postd['project_Name'];
+            $post_data['expoit'] = $postd['expoit'];
+            $post_data['status'] = 0;
+            $post_data['emailStatus'] = 0;
+            $data=$Model->create($post_data); 
+            if($data){
+                $result = $Model->add($data); 
+                if($result){ 
+                    $this->success("增加成功!"); 
+                }else{ 
+                    $this -> error($error ? $error:"操作失败"); 
+                }
+            }else{ 
+                $this -> error($error ? $error : "操作失败");
+            }
+        }
+        $this -> display('taskAdd');
+    }
+    //修改最大序列号
+     public function updMax(){
+        if(IS_POST){ 
+            $maxcode=$_REQUEST["expoit"];
+            if($maxcode){
+                if(conf_set("maxCode",$maxcode)!=''){
+                    $this -> success ("操作成功!");
+                }else{
+                    $this -> error("操作失败");
+                }
+                 
+            }else{ 
+                $this -> error($error ? $error : "操作失败");
+            } 
+        } 
+        $this -> assign("maxcode",conf_get("maxCode"));
+        $this -> display();
+    }
+     /**
+     * enable     修改启用状态
+     * @return [type] [description]
+     */
+    public function enable(){ 
+        if(IS_POST){
+            $post_data=I('post.');   
+            if($post_data['enable']!=''){ 
+                $isenable = array(
+                "0"=>'启用',
+                "-1"=>'终止',
+                "-2"=>'暂停',
+                "-3"=>'客户机器问题',  
+                ); 
+                $pp =D('projectdebug') -> where(array('id' => $post_data['id'])) ->find();
+                $loginUser=session("loginuser");
+                $post_data['logMessage']=$pp['logMessage'].date("Y-m-d")."  ".$loginUser["name"]." 更改启用状态为".$isenable[$post_data['enable']].";";
+                //更新数据库
+                $result =D('projectdebug') -> where(array('id' => $post_data['id'])) -> save($post_data);
+                if($result){ 
+                    $this -> success ("操作成功!",U('index'));
+                }else{ 
+                    $error = D('projectdebug') ->getError();
+                    $this -> error($error ? $error : "操作失败");
+                }
+            }else{ 
+                $this -> error($error ? $error : "操作失败2");
+            }
+            exit;
+        }
+        $_info = I('get.');
+        $_info = D('projectdebug') -> where (array('id' => $_info['id'])) -> find(); 
+        $this -> assign('obj',$_info);
+        $this -> display();
+    }
+    /**
+     * 开启调试
+     * @return [type] [description]
+     */
+    public function startTest(){
+        if(IS_POST){
+            $post_data=I('post.');
+            $post_data['status'] = "2"; 
+            if($post_data){
+                $result = D('projectdebug')->where(array('id'=>$post_data['id']))->save($post_data);
+                if($result){
+                    $this->success ( "开始调试",U('TestCheck/index'));
+                }else{
+                    $this->error($error ? $error : "操作失败");
+                }
+            }else{
+                $this->error($error ? $error : "操作失败！");
+            }
+            exit;
+        } 
+        $_info=I('get.');
+        $_info = D('projectdebug')->where(array('id'=>$_info['id']))->find();
+        $this->assign('obj', $_info); 
+        $this->display (); 
+    }
+
+    /**
+     * add     添加数据
+     */
+    public function add(){
+        if(IS_POST)
+        {
+            $Model = D('Projectdebug');
+            $post_data = I('post.');  
+            $post_data['enable'] =0; 
+            // 检测项目名称是否在评估中存在
+            $project_Name = D('Projectproposal')->where(array('project_Name'=>$post_data['project_Name']))->find();
+            if($project_Name){
+                $this->error("项目名称已存在");
+                exit;
+            } 
+            $technology_type = array();
+            $technology_type = $_REQUEST['technology_type'];
+            if($_REQUEST['technology_type_other'] && $_REQUEST['technology_type_other']!='')
+            {
+                 $technology_type[] = $_REQUEST['technology_type_other'];
+            }
+            $post_data['technology_type'] = implode(',',$technology_type);
+            //当前状态
+            $post_data['status'] =1; 
+            $post_data['project_Time'] = time();
+            $post_data['offer_Time'] =strtotime($post_data['offer_Time']);
+            $post_data['number_Time'] =strtotime($post_data['number_Time']); 
+            $post_data['test_Case'] =strtotime($post_data['test_Case']); 
+            $post_data['required_Time'] =strtotime($post_data['required_Time']); 
+            //获取当前登陆用户
+            $loginUser=session("loginuser"); 
+            $post_data["logMessage"]=date("Y-m-d")."  ".$loginUser["name"]."  新建调试立项;"; 
+            $data=$Model->create($post_data);
+            if($data){ 
+                $result = $Model->add($data);
+                //判断是否上传文件
+                if($_FILES["upload"]){
+                    $needacc=array();
+                    for($i=0;$i<count($_FILES ["upload"]["name"]);$i++){
+                        $filename=$_FILES ["upload"]["name"][$i]; 
+                        $savepath=C('SYSFILEUPLOADDIR')."upload/debug/".$result."/new/";  
+                        mkdir($savepath,0777,true);
+                        rename($_FILES ["upload"]["tmp_name"][$i],$savepath.$filename);
+                        $needacc[]=$savepath.$filename; 
+                    }
+                    $Model->where(array('id'=>$result))->save(array('newFileAddress'=>json_encode($needacc)));
+                }
+
+                $reliable_validate = array();
+                $reliable_validate = $_REQUEST['reliable_validate'];
+                // if($_REQUEST['reliable_validate'] && $_REQUEST['reliable_validate']!='')
+                // {
+                //     $reliable_validate[] = $_REQUEST['reliable_validate'];
+                // }
+
+                $prr= array();
+                $prr['order_number']='BT'.date('YmdHis');
+                $prr['project_name']=$post_data['project_Name'];
+                $prr['customer']=$post_data['customer'];
+                $prr['create_time']=time();
+                $prr['reliable_validate'] =implode(',',$reliable_validate);
+                $prr['create_name']=$loginUser["name"];
+                $prr['create_company']=$loginUser["company"];
+                $result=D('project_review_report')->add($prr);
+
+                if($result){ 
+                    //发送邮件
+                    $nameMap=explode(":",$data["proposer"]);
+                    $user=array();
+                    $user[]=$data["manager"];
+                    $this->assign("custName",$data['customer']);
+                    $this->assign("orderName",$data["project_Name"]);
+                    $this->assign("professionName",$nameMap[1]);
+                    $body=$this->fetch("emailTemplet").'<br>'.$this->fetch("emailCustomerTemplet");
+                    //mail_sendto_staff($user,"调试单审核通知",$body);
+
+                    //测试邮箱
+                    mail_send_content("597950458@qq.com","研发系统任务通知",$body);
+
+
+                    //邮件发送
+                    $prrUser=array();
+                    //接收人
+                    $prrList=conf_get("projectReviewReportConfig");
+                    //销售
+                    $prrUser[]=$data["proposer"];
+                    if($prrList){
+                        //循环接收人类型
+                        for ($i=0; $i <count($prrList); $i++) { 
+                            //拆分
+                            $valArr=explode(",",$prrList[$i]);
+                            for ($j=0; $j<count($valArr); $j++) { 
+                                $prrUser[]=$valArr[$j];
+                            }
+                         }
+                    }
+                    $prrBody=$this->fetch("emailModel").'<br>'.$this->fetch("emailCustomerTemplet");
+                    //mail_sendto_staff($prrUser,"立项评审审核通知",$prrBody);
+
+                    //测试邮箱
+                    mail_send_content("597950458@qq.com","研发系统任务通知",$body);
+
+                    
+                    $this->success("增加成功!",U('index'));// 生成当前访问模块的index操作地址
+                }else{ 
+                    $this -> error($error ? $error:"增加失败"); 
+                }
+            }else{ 
+                $error = $Model->getError();
+                $this -> error($error ? $error : "操作失败");
+            }
+            exit;
+        } 
+        $sale = deptuser("销售部");
+        $this -> assign("sale",$sale);
+        $this -> display();
+    }
+
+    /**
+     * 获取数据库表中的明细
+     * 给reconciliactionDetail和send提供内容
+     * @return [type] [description]
+     */
+    public function reconciliactionDetail()
+    {
+
+      //获取供应商数据
+
+        $supplyinfo = D('projectdebug')->where(array('id'=>$_REQUEST['id']))->find(); 
+        $this->assign('obj', $supplyinfo);  
+        $supplyinfo = D('projectdebug')->where(array('id'=>$_REQUEST['id']))->find();
+        //新建文档
+        $newJsonList=json_decode($supplyinfo["newFileAddress"],true);
+        $newList=array();
+        $index=0;
+        if($newJsonList){
+            foreach ($newJsonList as $key => $value) {
+                $obj["name"]=substr($value,strrpos($value,"/")+1);
+                $obj['id']= $supplyinfo['id']; 
+                $obj['index'] = $index;
+                $obj['type']="new";
+                $newList[]=$obj;
+                $index++;
+            } 
+        }  
+        $this->assign('newList', $newList); 
+        //审核文档
+        $checkJsonList=json_decode($supplyinfo["checkFileAddress"],true);
+        $checkList=array();
+        $index=0;
+        if($checkJsonList){
+            foreach ($checkJsonList as $key => $value) {
+                $obj["name"]=substr($value,strrpos($value,"/")+1);
+                $obj['id']= $supplyinfo['id']; 
+                $obj['index'] = $index;
+                $obj['type']="check";
+                $checkList[]=$obj;
+                $index++;
+            } 
+        }  
+        $this->assign('checkList', $checkList); 
+        //研发报告
+        $developJsonList=json_decode($supplyinfo["developFileAddress"],true);
+        $developList=array();
+        $index=0;
+        if($developJsonList){
+            foreach ($developJsonList as $key => $value) {
+                $obj["name"]=substr($value,strrpos($value,"/")+1);
+                $obj['id']= $supplyinfo['id']; 
+                $obj['index'] = $index;
+                $obj['type']='develop';
+                $developList[]=$obj;
+                $index++;
+            } 
+        }  
+        $this->assign('developList', $developList); 
+        //承认书文档
+        $bookJsonList=json_decode($supplyinfo["bookFileAddress"],true);
+        $bookList=array();
+        $index=0;
+        if($bookJsonList){
+            foreach ($bookJsonList as $key => $value) {
+                $obj["name"]=substr($value,strrpos($value,"/")+1);
+                $obj['id']= $supplyinfo['id']; 
+                $obj['index'] = $index;
+                $obj['type']='book';
+                $bookList[]=$obj;
+                $index++;
+            } 
+        }  
+        $this->assign('bookList', $bookList); 
+        $supplyinfo['project_Time'] = date("Y-m-d",$supplyinfo['project_Time']);  //立项时间
+        $supplyinfo['offer_Time'] = date("Y-m-d",$supplyinfo['offer_Time']);  //样机提供时间 
+        $supplyinfo['test_Case'] = date("Y-m-d",$supplyinfo['test_Case']); //测试报告时间
+        $supplyinfo['required_Time'] = date("Y-m-d",$supplyinfo['required_Time']); //样品需求时间 
+
+        //明细数据时间为1970 的时候 / 代替
+        if($supplyinfo['proofingTime']==0 || $supplyinfo['proofingTime']==null){
+            $supplyinfo['proofingTime'] = '/';  //开始打样时间
+            $supplyinfo['expectToSampleTime'] = '/';//预计到样时间
+            $supplyinfo['toSampleTime'] = '/';//实际到样时间 
+        }else{
+            $supplyinfo['proofingTime'] = date("Y-m-d",$supplyinfo['proofingTime']);  //开始打样时间
+            $supplyinfo['expectToSampleTime'] = date("Y-m-d",$supplyinfo['expectToSampleTime']);//预计到样时间
+            $supplyinfo['toSampleTime'] = date("Y-m-d",$supplyinfo['toSampleTime']);//实际到样时间 
+
+        }
+        if($supplyinfo['number_Time']==0 || $supplyinfo['number_Time']==null){ 
+            $supplyinfo['number_Time'] = '/'; //估计量产时间
+        }else{ 
+            $supplyinfo['number_Time'] = date("Y-m-d",$supplyinfo['number_Time']);//估计量产时间
+        }
+        
+
+        $logMessagearray = explode(";",$supplyinfo['logMessage']); 
+        $logMessage = '';
+        for($index = count($logMessagearray)-1 ;$index>=0;$index--){  
+             $logMessage.= $logMessagearray[$index]."\n";  
+        }  
+        $this->assign('logMessage', $logMessage);  
+        $this->assign('obj', $supplyinfo);
+        $this->display(); 
+    }
+    /**
+     * edit     修改数据
+     * @return [type] [description]
+     */
+    public function editInfo(){
+       if(IS_POST){
+            $post_data=I('post.');  
+            $post_data['project_Time'] =strtotime($post_data['project_Time']);
+            $post_data['offer_Time'] =strtotime($post_data['offer_Time']);
+            $post_data['number_Time'] =strtotime($post_data['number_Time']); 
+            $post_data['required_Time'] =strtotime($post_data['required_Time']);
+            $post_data['test_Case'] =strtotime($post_data['test_Case']);  
+
+
+            $post_data['toSampleTime'] =strtotime($post_data['toSampleTime']);//到样时间
+            $post_data['expectToSampleTime'] =strtotime($post_data['expectToSampleTime']);//预计到样时间
+            $post_data['sendSampleTime'] =strtotime($post_data['sendSampleTime']);  //送样时间
+            $post_data['sampleValidationTime'] =strtotime($post_data['sampleValidationTime']);//样品验证通过时间
+            $post_data['proofingTime'] =strtotime($post_data['proofingTime']);   //打样时间
+            $post_data['customerConfirmSuccessTime'] =strtotime($post_data['customerConfirmSuccessTime']);//客户确认通过时间
+            $post_data['developmentSuccessTime'] =strtotime($post_data['developmentSuccessTime']);//研发通过时间
+            $post_data['auditSuccessTime'] =strtotime($post_data['auditSuccessTime']);  //审核成功时间 
+
+            if($post_data){
+                //返回结果
+                $projectResut = D('projectdebug')->where(array('id'=>$post_data['id']))->find();
+                $loginUser=session("loginuser");
+                $post_data['logMessage']=$projectResut["logMessage"].date("Y-m-d")."  ".$loginUser["name"]."  修改;";
+                //更新数据库
+                $result =D('projectdebug') -> where(array('id' => $post_data['id'])) -> save($post_data);
+                if($result){ 
+                    $this -> success ("操作成功!",U('index'));
+                }else{ 
+                    $this -> error($error ? $error : "操作失败");
+                }
+            }else{ 
+                $this -> error($error ? $error : "操作失败");
+            }
+            exit;
+        }
+        $_info = I('get.');
+        $_info = D('projectdebug') -> where (array('id' => $_info['id'])) -> find();
+        $_info['project_Time'] = date("Y-m-d",$_info['project_Time']); 
+        $_info['offer_Time'] = date("Y-m-d",$_info['offer_Time']);
+        $_info['required_Time'] = date("Y-m-d",$_info['required_Time']);
+        $_info['test_Case'] = date("Y-m-d",$_info['test_Case']); 
+
+ 
+        $_info['sendSampleTime'] =date("Y-m-d",$_info['sendSampleTime']);  //送样时间
+        $_info['sampleValidationTime'] =date("Y-m-d",$_info['sampleValidationTime']);//样品验证通过时间 
+        $_info['customerConfirmSuccessTime'] =date("Y-m-d",$_info['customerConfirmSuccessTime']);//客户确认通过时间
+        $_info['developmentSuccessTime'] =date("Y-m-d",$_info['developmentSuccessTime']);//研发通过时间
+        $_info['auditSuccessTime'] =date("Y-m-d",$_info['auditSuccessTime']);  //审核成功时间 
+
+        //明细数据时间为1970 的时候 / 代替
+        if($_info['proofingTime']==0 || $_info['proofingTime']==null){
+            $_info['proofingTime'] = '/';  //开始打样时间
+            $_info['expectToSampleTime'] = '/';//预计到样时间
+            $_info['toSampleTime'] = '/';//实际到样时间 
+        }else{
+            $_info['proofingTime'] = date("Y-m-d",$_info['proofingTime']);  //开始打样时间
+            $_info['expectToSampleTime'] = date("Y-m-d",$_info['expectToSampleTime']);//预计到样时间
+            $_info['toSampleTime'] = date("Y-m-d",$_info['toSampleTime']);//实际到样时间 
+
+        }
+        if($_info['number_Time']==0 || $_info['number_Time']==null){ 
+            $_info['number_Time'] = '/'; //估计量产时间
+        }else{ 
+            $_info['number_Time'] = date("Y-m-d",$_info['number_Time']);//估计量产时间
+        }
+        $this -> assign('obj',$_info);
+        $sale = deptuser("销售部");
+        $this -> assign("sale",$sale);
+        $this -> display('edit');
+    }
+
+
+    /**
+     * edit     修改数据
+     * @return [type] [description]
+     */
+    // public function edit(){
+    //     if(IS_POST){
+    //         $post_data=I('post.');   
+    //          $technology_type = array();
+    //         $technology_type = $_REQUEST['technology_type'];
+    //         if($_REQUEST['technology_type_other'] && $_REQUEST['technology_type_other']!='')
+    //         {
+    //              $technology_type[] = $_REQUEST['technology_type_other'];
+    //         }
+    //         $post_data['technology_type'] = implode(',',$technology_type);
+    //         $post_data['offer_Time'] =strtotime($post_data['offer_Time']); 
+    //         $post_data['number_Time'] =strtotime($post_data['number_Time']);
+    //         $post_data['test_Case'] =strtotime($post_data['test_Case']); 
+    //         if($post_data){
+    //             //返回结果
+    //             $projectResut = D('projectdebug')->where(array('id'=>$post_data['id']))->find();
+                 
+    //             //获取当前登陆用户
+    //         $loginUser=session("loginuser");
+            
+    //         $post_data["logMessage"]=$projectResut["logMessage"].date("Y-m-d")."  ".$loginUser["name"]."  修改数据;";
+
+                
+    //             $post_file = D('projectproposal')->where(array('id'=>$post_data['id']))->find();
+    //             $fileList =  json_decode($post_file['newFileAddress']);
+    //             $file = array();
+    //             //判断是否有上传文件
+    //             if($_FILES["upload"]){
+    //                 $needacc=array();
+    //                 //循环上传文件
+    //                 for($i=0;$i<count($_FILES ["upload"]["name"]);$i++){
+    //                     $filename=$_FILES ["upload"]["name"][$i];
+    //                     $savepath=C('SYSFILEUPLOADDIR')."upload/debug/".$post_data['id']."/new/"; 
+    //                     //设置权限 并保存文件
+    //                     mkdir($savepath,0777,true);
+    //                     rename($_FILES ["upload"]["tmp_name"][$i],$savepath.$filename);
+    //                     $needacc[]=$savepath.$filename; 
+    //                 }
+    //                 if($post_file['newFileAddress'] == null || $post_file['newFileAddress'] == ''){
+    //                     $file = $needacc;
+    //                 }else {
+    //                     $file = array_merge($fileList,$needacc);
+    //                 }
+    //                 //上传文件路径转JSON
+    //                 $post_data["newFileAddress"]=json_encode($file);
+    //             }
+    //             $post_data['status']=1;
+    //             //更新数据库
+    //             $result =D('projectdebug') -> where(array('id' => $post_data['id'])) -> save($post_data);
+    //             if($result){ 
+    //                 //发送邮件
+    //                 $user=array();
+    //                 $user[]=$post_data["manager"];
+    //                 $this->assign("custName",$post_data['customer']);
+    //                 $this->assign("orderName",$post_data["project_Name"]);
+    //                 $this->assign("professionName",$post_data["proposer"]);
+    //                 $body=$this->fetch("emailTemplet");
+    //                 mail_sendto_staff($user,"调试单审核通知",$body);
+                        
+    //                 $this -> success ("操作成功!",U('index'));
+    //             }else{ 
+    //                     $this -> error($error ? $error : "操作失败");
+    //             }
+    //         }else{ 
+    //             $this -> error($error ? $error : "操作失败");
+    //         }
+    //         exit;
+    //     }
+    //     $_info = I('get.');
+    //     $_info = D('projectdebug') -> where (array('id' => $_info['id'])) -> find();
+    //     $_info['offer_Time'] = date("Y-m-d",$_info['offer_Time']); 
+    //     $_info['number_Time'] = date("Y-m-d",$_info['number_Time']); 
+    //     $_info['test_Case'] = date("Y-m-d",$_info['test_Case']); 
+    //     $this -> assign('obj',$_info); 
+    //     $sale = deptuser("销售部");
+    //     $this -> assign("sale",$sale);
+    //     //跳转到修改页面
+    //     $this -> display();
+    // }
+
+ 
+    //文档下载
+    public function downloadfile(){
+        $receiptacc="";
+        $record= D('projectdebug')->where(array('id'=>$_REQUEST["id"]))->find();
+        //判断是哪种文件下载  
+        if($_REQUEST["type"]=="develop"){
+            $receiptacc=json_decode($record["developFileAddress"],true); 
+        }else if($_REQUEST["type"]=="check"){
+            $receiptacc=json_decode($record["checkFileAddress"],true); 
+        }else if($_REQUEST["type"]=="book"){
+            $receiptacc=json_decode($record["bookFileAddress"],true); 
+        }else if($_REQUEST["type"]=="new"){
+            $receiptacc=json_decode($record["newFileAddress"],true); 
+        }else{
+            $receiptacc=json_decode($record["sampleFileAddress"],true); 
+        }
+
+        sendfile($receiptacc[$_GET["index"]]);
+   }
+   
+    /**
+     * 删除数据
+     * [del description]
+     * @return [type] [description]
+     */
+    public function del(){
+        $Model = D('projectdebug');
+        //获得用户id
+        $id = I('get.id');
+        //判断是否选中
+        empty($id)&& $this -> error('参数不能为空！');
+        //返回结果 
+        $res = $Model -> delete($id);
+        if(!$res){
+            //如果删除失败，返回失败信息
+            $this -> error($this -> Model -> getError());
+        }else{
+            $this -> success('删除成功!');
+        }
+        $this -> display();
+    }
+
+     /**
+     * 导出
+     * @return 
+     */
+    public function download(){
+        $Model = D('projectdebug');
+        $where=$this->_search();
+        $list = $Model->where($where)->select(); 
+
+        $name = "项目调试数据"; //导出的excel文件名
+        vendor("XinliLib.PHPExcel.PHPExcel");
+        Vendor("XinliLib.PHPExcel.PHPExcel.IOFactory");  
+        error_reporting(E_ALL);
+        date_default_timezone_set('Europe/London');
+        $objPHPExcel = new \PHPExcel();
+        $objWriter = \PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+        $objPHPExcel->getProperties()->setCreator("admin")
+                               ->setLastModifiedBy("admin")
+                               ->setTitle("数据EXCEL导出")
+                               ->setSubject("数据EXCEL导出")
+                               ->setDescription("数据")
+                               ->setKeywords("excel")
+                               ->setCategory("result file");
+        $cellName = array('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','AA','AB','AC','AD','AE','AF','AG','AH','AI','AJ','AK','AL','AM','AN','AO','AP','AQ','AR','AS','AT','AU','AV','AW','AX','AY','AZ');
+
+    $isConfirm = array(
+                "1"=>'审批中',
+                "2"=>'审核通过',
+                "3"=>'审核不通过',
+                "4"=>'已发研发报告',
+                "5"=>'研发不通过',
+                "6"=>'客户确认数据通过',
+                "7"=>'客户确认数据不通过',
+                "8"=>'到样',
+                "9"=>'研发验证样品OK',
+                "10"=>'研发验证样品不通过',
+                "11"=>'送样',
+                "12"=>'客户确认样品性能OK',
+                "13"=>'需优化',
+                "14"=>'客户试产',
+                "15"=>'承认书',
+                "16"=>'销售送承认书',
+                "17"=>'试产状态',
+                "18"=>'需优化',
+                "20"=>'打样'
+                
+            );
+     $isenables = array(
+            "0" => '启动',
+            "-1" => '终止',
+            "-2" => '暂停',
+            "-3" => '客户机器问题'
+        ); 
+     $newlist = array();
+     for ($i=0; $i <count($list) ; $i++) { 
+         $templist = array();
+         $templist['开发案例号'] =$list[$i]['expoit'];
+         $templist['当前状态'] =$isConfirm[$list[$i]['status']];
+         $templist['启动状态'] = $isenables[$list[$i]['enable']];
+         $templist['项目名称'] =$list[$i]['project_Name'];
+         $templist['客户'] =$list[$i]['customer'];
+         $templist['主板方案'] =$list[$i]['main_Project'];
+         $templist['主控芯片'] =$list[$i]['chip'];
+         $templist['产品类别'] =$list[$i]['product_Type'];
+         $templist['技术类别'] =$list[$i]['technology_type'];
+         $templist['立项时间'] = date("m月d日",$list[$i]['project_Time']);
+         $templist['业务员'] =  str_replace("销售部:", "", $list[$i]['proposer']);
+         $templist['RF工程师'] =str_replace("研发部:", "", $list[$i]['rf_engineer']);
+         $templist['结构工程师'] =str_replace("研发部:", "", $list[$i]['structure_engineer']);
+         $templist['RF项目总日志'] =str_replace(" ", "", $list[$i]['logMessage']); 
+
+         if(date("Y年m月d日",$list[$i]['proofingTime'])=="1970年01月01日"){
+            $templist['开始打样时间'] =0;
+            $templist['预计到样时间'] = 0;
+            $templist['实际到样时间'] = 0;
+            $templist['打样天数'] = 0;
+         }else{
+            $templist['开始打样时间'] = date("m月d日",$list[$i]['proofingTime']);
+             $templist['预计到样时间'] = date("m月d日",$list[$i]['expectToSampleTime']);
+             $templist['实际到样时间'] = date("m月d日",$list[$i]['toSampleTime']);
+             $Days=substr((($list[$i]['toSampleTime']-$list[$i]['proofingTime'])/3600/24),0,3); 
+            $templist['打样天数'] = $Days+"天";
+         }
+
+         
+         
+         $newlist[] = $templist;
+     }
+
+    if(count($newlist) == 0){
+        $this->error('没有可下载的数据');
+        exit;
+    }
+    $column= $objPHPExcel->setActiveSheetIndex(0);
+    $i = 0;
+    foreach (array_keys($newlist[0]) as $key => $value) {
+         $column ->setCellValue($cellName[$i].'1', $value);
+         $i++;
+    }
+    for($i=0; $i <count($newlist) ; $i++) { 
+        $record=$newlist[$i]; 
+        $k=0;
+        foreach ($record as $key => $value) {
+
+            $column ->setCellValueExplicit($cellName[$k].($i+2), strval($value),'str');//设置字符串格式
+                $k++;
+            }  
+        }
+
+         header('Content-Type: application/vnd.ms-excel');
+         header('Content-Disposition: attachment;filename="'.$name.'.xlsx"');
+         header('Cache-Control: max-age=0');
+         
+         $objWriter->save('php://output');
+         exit;
+
+     }
+   
+
+  
+   /**
+    * remarks
+    * 增加备注
+    */
+    
+    public function remarks(){
+        if(IS_POST){
+            $post_data=I('post.');
+            $obj = D('projectdebug')->where(array('id'=>$post_data['id']))->find();
+            $loginUser=session("loginuser");
+            $post_data["logMessage"]=$obj["logMessage"].date("Y-m-d")."  ".$loginUser["name"]."  ".$post_data['remarks'].";";
+
+            if($post_data){
+                $result = D('projectdebug')->where(array('id'=>$post_data['id']))->save($post_data);
+                if($result){
+                    
+                    $this->success ( "新增备注成功");
+                }else{
+                    $this->error("新增备注失败");
+                }
+            }else{
+                $this->error($error ? $error : "操作失败！");
+            }
+            exit;
+          }  
+        $_info=I('get.');
+        $this->assign('id', $_info['id']); 
+        $this->display ('remarks'); 
+    }
+    // //邮件配置
+    // public function EmailInfo(){
+    //     if(IS_POST){
+    //         //保存邮箱配置信息
+    //         $result = conf_set("DebuggingEmailInfo",$_POST);
+    //         if($result){
+    //           $this->error("操作成功！");
+    //         }else{
+    //           $this->error("操作失败！");
+    //         }
+    //       }
+    //       $_info=conf_get("DebuggingEmailInfo");
+    //       $this->assign('email', $_info); 
+    //       $this -> display();
+    // }
+
+   
+}
